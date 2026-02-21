@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 
 @pytest.fixture
@@ -9,8 +10,14 @@ def app_with_mocked_deps():
 
     app = create_app()
 
-    with patch("app.api.health.check_postgres", new_callable=AsyncMock, return_value=True), \
-         patch("app.api.health.check_redis", return_value=True):
+    with (
+        patch(
+            "app.api.health.check_postgres",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch("app.api.health.check_redis", return_value=True),
+    ):
         yield app
 
 
@@ -21,6 +28,12 @@ def app_with_postgres_down():
 
     app = create_app()
 
-    with patch("app.api.health.check_postgres", new_callable=AsyncMock, return_value=False), \
-         patch("app.api.health.check_redis", return_value=True):
+    with (
+        patch(
+            "app.api.health.check_postgres",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        patch("app.api.health.check_redis", return_value=True),
+    ):
         yield app
