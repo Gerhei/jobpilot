@@ -4,7 +4,6 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
 
-
 # ── Async (FastAPI) ──────────────────────────────────────────────────────────
 async_engine = create_async_engine(
     settings.DATABASE_URL,

@@ -13,7 +13,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import TIMESTAMPTZ, TSVECTOR, UUID
+from sqlalchemy.dialects.postgresql import TIMESTAMP, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -52,13 +52,13 @@ class Vacancy(Base):
     relevance_score: Mapped[Optional[float]] = mapped_column(FLOAT)
 
     published_at: Mapped[datetime] = mapped_column(
-        TIMESTAMPTZ, nullable=False, server_default=func.now()
+        TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )
     fetched_at: Mapped[datetime] = mapped_column(
-        TIMESTAMPTZ, nullable=False, server_default=func.now()
+        TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        TIMESTAMPTZ, nullable=False, server_default=func.now()
+        TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )
 
     skills: Mapped[list["VacancySkill"]] = relationship(

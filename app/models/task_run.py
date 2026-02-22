@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from sqlalchemy import INTEGER, TEXT, VARCHAR, func, text
-from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMPTZ, UUID
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -22,9 +22,11 @@ class TaskRun(Base):
         VARCHAR, nullable=False
     )  # pending/running/success/failure
     started_at: Mapped[datetime] = mapped_column(
-        TIMESTAMPTZ, nullable=False, server_default=func.now()
+        TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )
-    finished_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMPTZ, nullable=True)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     error: Mapped[Optional[str]] = mapped_column(TEXT)
     vacancies_fetched: Mapped[Optional[int]] = mapped_column(INTEGER)
     vacancies_saved: Mapped[Optional[int]] = mapped_column(INTEGER)
