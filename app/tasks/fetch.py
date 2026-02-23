@@ -1,4 +1,5 @@
 import logging
+import uuid
 from datetime import datetime, timezone
 
 import redis as redis_lib
@@ -16,18 +17,29 @@ UTC = timezone.utc
 
 
 @celery_app.task(bind=True, max_retries=3, name="app.tasks.fetch.fetch_vacancies")
-def fetch_vacancies(self) -> dict:
+def fetch_vacancies(self, task_run_id: str | None = None) -> dict:
     r = redis_lib.from_url(settings.REDIS_URL)
     dedup = DedupService(r)
 
     if dedup.is_circuit_open():
         logger.warning("Circuit open, skipping fetch")
+        if task_run_id is not None:
+            _finish_task(
+                uuid.UUID(task_run_id),
+                "failure",
+                error="circuit_open",
+            )
         return {"status": "skipped", "reason": "circuit_open"}
 
     with SyncSessionLocal() as session:
-        task_run = TaskRun(task_name="fetch_vacancies", status="running")
-        session.add(task_run)
-        session.commit()
+        if task_run_id is not None:
+            task_run = session.get(TaskRun, uuid.UUID(task_run_id))
+            task_run.status = "running"
+            session.commit()
+        else:
+            task_run = TaskRun(task_name="fetch_vacancies", status="running")
+            session.add(task_run)
+            session.commit()
         task_run_id = task_run.id
 
     vacancies_fetched = 0
@@ -91,6 +103,9 @@ def _finish_task(
 ) -> None:
     with SyncSessionLocal() as session:
         tr = session.get(TaskRun, task_run_id)
+        if tr is None:
+            logger.error("TaskRun %s not found in _finish_task", task_run_id)
+            return
         tr.status = status
         tr.finished_at = datetime.now(tz=UTC)
         tr.error = error

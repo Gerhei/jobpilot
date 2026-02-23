@@ -11,31 +11,14 @@
 - Docker Compose (api, worker, beat, db, redis)
 - Unit + integration тесты
 
-## Step 1.2 — SQLAlchemy модели + Alembic миграции
+## Step 1.2 — SQLAlchemy модели + Alembic миграции ✓
 
 - SQLAlchemy модели: `Vacancy`, `VacancySkill`, `TaskRun`
 - Alembic init + первая миграция
 - Upsert логика с триггером updated_at
 - Integration тесты с реальной БД
 
-**В начале этого шага:**
-
-Добавить `ruff` как dev-зависимость:
-```bash
-uv add --dev ruff
-```
-
-Настройка в `pyproject.toml`:
-```toml
-[tool.ruff]
-line-length = 88
-target-version = "py312"
-
-[tool.ruff.lint]
-select = ["E", "F", "I"]  # pycodestyle + pyflakes + isort
-```
-
-## Step 1.3 — Fetcher + Enricher workers
+## Step 1.3 — Fetcher + Enricher workers ✓
 
 - hh.ru API client (поиск + детали вакансии)
 - Redis dedup (SET NX EX 35 дней)
@@ -43,26 +26,38 @@ select = ["E", "F", "I"]  # pycodestyle + pyflakes + isort
 - Парсинг навыков, расчёт relevance_score
 - Integration тесты с живыми сервисами
 
-**В начале этого шага:**
+## Step 1.4 — REST API ✓
 
-Создать проектный скилл `jobpilot-testing` (`.claude/skills/jobpilot-testing/SKILL.md`)
-с соглашениями по тестам: структура unit/integration, что мокировать,
-pytest fixtures-конвенции, как запускать тесты с Docker.
+- `GET /api/v1/vacancies` — список с фильтрами и пагинацией
+- `POST /api/v1/tasks/fetch` — fire-and-forget запуск сбора (202 Accepted)
+- `GET /api/v1/tasks/{id}` — статус TaskRun
+- Чистая архитектура: Router → UseCase → Repository
+- 17 новых unit-тестов (47 всего)
 
-## Step 1.4 — REST API
+## Step 1.5 — Защита от бана и ограничения парсинга
 
-- `GET /vacancies` — список вакансий с фильтрацией и пагинацией
-- `POST /tasks/fetch` — запуск задачи сбора
-- `GET /tasks/{id}` — статус задачи
-- Pydantic схемы ответов
-- Unit тесты endpoint-ов
+Проблемы, выявленные на Step 1.4:
+- hh.ru возвращает 403 на ~30% вакансий при анонимных запросах
+- Парсинг 2000 вакансий занимает ~5 минут — риск бана при частых запусках
 
-## Step 1.5 — Rate limiting, circuit breaker
+Что делать:
+- Настраиваемый лимит парсинга: `MAX_VACANCIES_PER_RUN` (например, 200)
+  и/или `MAX_PAGES_PER_RUN` — задача прекращает обход после достижения лимита
+- OAuth-авторизация hh.ru: access token снимает большинство 403
+  (токен приложения, не пользователя — для анонимного сбора)
+- Rate limiting для `POST /tasks/fetch`: не чаще раза в N минут
+  (config `FETCH_RATE_LIMIT_SECONDS` уже есть, нужно подключить)
 
-- Rate limiting для hh.ru API (не более X запросов в секунду)
-- Circuit breaker при недоступности hh.ru
-- Retry с экспоненциальным backoff
-- Метрики и логирование
+## Step 1.6 — Параметризованный поиск через API
+
+Сейчас критерии поиска хардкодятся в `.env` (`HH_SEARCH_KEYWORDS`, `HH_AREA_ID`).
+Это неудобно: нельзя поменять поиск без перезапуска сервиса.
+
+Варианты (обсудить перед реализацией):
+- `POST /tasks/fetch` принимает тело `{"keywords": "python fastapi", "area": 1}`
+  — разовый поиск с произвольными параметрами
+- Таблица `SearchProfile` — именованные профили поиска, задача ссылается на профиль
+- Гибрид: тело опционально, fallback на `.env` если не передано
 
 ---
 

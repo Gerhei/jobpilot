@@ -37,10 +37,12 @@ docker compose up      # поднимает api, worker, beat, db, redis
 
 ```
 app/
-  api/v1/          # REST endpoints (GET /vacancies, POST /tasks/fetch)
+  api/v1/          # REST endpoints (GET /vacancies, POST /tasks/fetch, GET /tasks/{id})
   api/health.py    # GET /health — статус PostgreSQL и Redis
   models/          # SQLAlchemy модели (Vacancy, VacancySkill, TaskRun)
-  schemas/         # Pydantic схемы
+  schemas/         # Pydantic схемы (VacancyOut, TaskRunOut, ...)
+  repositories/    # Слой доступа к данным (VacancyRepository, TaskRepository)
+  use_cases/       # Бизнес-сценарии (ListVacancies, TriggerFetch, GetTaskStatus)
   services/
     skills_map.py  # SKILLS_MAP + normalize_skill()
     currency.py    # to_rub() с фиксированными курсами
@@ -56,7 +58,7 @@ app/
   database.py      # async engine (FastAPI) + sync engine (Celery)
   main.py          # Фабрика FastAPI приложения
 tests/
-  unit/            # Без внешних зависимостей (30 тестов)
+  unit/            # Без внешних зависимостей (47 тестов)
   integration/     # С реальными сервисами Docker (7 тестов)
 migrations/        # Alembic
 .claude/skills/    # AI-правила проекта
@@ -143,11 +145,15 @@ uv run ruff check . --fix && uv run ruff format . && uv run pytest tests/unit/ -
 
 - **Async FastAPI + Sync Celery**: явное разделение — FastAPI использует asyncpg,
   Celery использует psycopg2 (избегаем asyncio.run в воркерах)
+- **Чистая архитектура API**: Router → UseCase → Repository → SQLAlchemy.
+  Use cases тестируются с mock-репозиториями, без HTTP и без DB.
 - **Redis dedup**: SET NX EX 35 дней — атомарно, без race conditions
 - **Batch enrichment**: до 20 вакансий за задачу Celery
 - **NULL relevance_score**: NULL = скиллы не найдены (vs 0.0 = найдены, но не совпали)
 - **Upsert с умным updated_at**: обновляет только при реальных изменениях данных
 - **FTS-триггер в PostgreSQL**: `description_tsv` обновляется триггером на INSERT/UPDATE
+- **Celery default queue**: `task_default_queue="default"` в конфиге, воркер запускается
+  с `-Q default`. Все задачи идут в одну очередь.
 
 ## AI-правила проекта
 
@@ -184,8 +190,8 @@ cp -r .claude/skills/* ~/.claude/skills/
 
 См. [ROADMAP.md](ROADMAP.md)
 
-## Текущий статус: Step 1.3 завершён
+## Текущий статус: Step 1.4 завершён
 
-Реализовано: сервисы нормализации, HH-клиент, дедупликация, Celery-задачи
-(fetch/enrich/cleanup), beat schedule, 37 тестов (30 unit + 7 integration).
-Следующий шаг: Step 1.4 — REST API (GET /vacancies, POST /tasks/fetch).
+Реализовано: REST API (GET /vacancies, POST /tasks/fetch, GET /tasks/{id}),
+чистая архитектура (Router → UseCase → Repository), 54 теста (47 unit + 7 integration).
+Следующий шаг: Step 1.5 — ограничения парсинга и защита от бана.
