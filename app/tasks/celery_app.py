@@ -15,6 +15,7 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    task_default_queue="default",
     imports=["app.tasks.fetch", "app.tasks.enrich", "app.tasks.cleanup"],
     beat_schedule={
         "fetch-vacancies-hourly": {
