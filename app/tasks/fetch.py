@@ -63,7 +63,13 @@ def fetch_vacancies(self, task_run_id: str | None = None) -> dict:
                     ext_id = str(item["id"])
                     if not dedup.is_new("hh", ext_id):
                         continue
-                    detail = client.get_vacancy(ext_id)
+                    try:
+                        detail = client.get_vacancy(ext_id)
+                    except HHAPIError as e:
+                        if "403" in str(e):
+                            logger.warning("Skipping vacancy %s: %s", ext_id, e)
+                            continue
+                        raise
                     batch.append(detail)
                     vacancies_fetched += 1
                     if len(batch) >= 20:
